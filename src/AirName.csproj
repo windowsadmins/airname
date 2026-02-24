@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>airname</AssemblyName>
+    <AssemblyTitle>AirName</AssemblyTitle>
+    <AssemblyDescription>Displays your computer's friendly name in the system tray</AssemblyDescription>
+    <AssemblyCompany>Emily Carr University</AssemblyCompany>
+    <AssemblyProduct>AirName</AssemblyProduct>
+    <ApplicationIcon>..\assets\airname.ico</ApplicationIcon>
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>false</SelfContained>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="..\assets\airname.ico" Link="airname.ico" />
+  </ItemGroup>
+
+</Project>
