@@ -13,7 +13,7 @@
     <AssemblyProduct>AirName</AssemblyProduct>
     <ApplicationIcon>..\assets\airname.ico</ApplicationIcon>
     <PublishSingleFile>true</PublishSingleFile>
-    <SelfContained>false</SelfContained>
+    <SelfContained>true</SelfContained>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
   </PropertyGroup>
