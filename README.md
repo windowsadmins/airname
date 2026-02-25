@@ -1,7 +1,8 @@
 # AirName for Windows
 
-A lightweight Windows system tray application that displays your computer's
-friendly name for easy identification. Built with .NET 10 WinForms.
+A lightweight Windows application that displays your computer's friendly name
+as a floating label on the taskbar and in the system tray. Built with .NET 10
+WinForms and Win32 layered windows.
 
 Great for shared device environments like offices, labs, and classrooms.
 
@@ -9,12 +10,15 @@ Windows equivalent of [AirName for macOS](https://github.com/rodchristiansen/air
 
 ## Features
 
-- **System Tray Display**: Shows your computer's friendly name as the tray icon tooltip
-- **Right-Click Menu**: Displays friendly name (bold), hostname, and copy-to-clipboard
-- **Auto-Refresh**: Picks up name changes every 5 minutes and on session switch
-- **Lightweight**: Framework-dependent single-file executable (~180KB)
-- **No User Interaction Required**: Runs silently in the background
-- **Single Instance**: Mutex prevents duplicate instances
+- **Floating Taskbar Label**: Always-visible text overlay on the taskbar showing the friendly name, using per-pixel alpha compositing via UpdateLayeredWindow
+- **System Tray Icon**: Tooltip shows the friendly name; right-click menu offers bold name display and copy-to-clipboard
+- **Dark/Light Mode**: Automatically adapts text color based on the system theme (reads SystemUsesLightTheme registry value)
+- **Always On Top**: Uses SetWinEventHook to instantly re-assert topmost when any window takes focus, plus a 500ms polling fallback
+- **Click-Through**: The floating label is fully transparent to mouse input (WS_EX_TRANSPARENT + HTTRANSPARENT)
+- **Auto-Refresh**: Picks up name changes every 5 minutes, on session switch, and on display/theme changes
+- **Self-Contained**: Single-file executable with embedded runtime (~110 MB x64, ~120 MB arm64)
+- **Single Instance**: Global mutex prevents duplicate instances
+- **Dual Architecture**: Native x64 and arm64 builds
 
 ## How It Works
 
@@ -28,6 +32,11 @@ This is the same value set by `net config server /srvcomment:"Friendly Name"` an
 visible in Windows network browsing. If no sharing name is set, AirName falls
 back to the standard Windows hostname (`$env:COMPUTERNAME`).
 
+The floating label is rendered as a Win32 layered window (UpdateLayeredWindow with
+32bpp ARGB bitmap) positioned at the bottom-left of the screen, overlaying the
+taskbar. Text is drawn with a subtle drop shadow for readability against both
+light and dark taskbar backgrounds.
+
 ## Building
 
 Requires .NET 10 SDK.
@@ -36,12 +45,15 @@ Requires .NET 10 SDK.
 # Development build
 dotnet build src/AirName.csproj
 
-# Production build (single-file, self-contained)
+# Production build (self-contained, single-file, dual-arch, signed)
 ./build.ps1
 
-# With code signing
-./build.ps1 -Sign -Thumbprint <certificate-thumbprint>
+# Skip signing for local testing
+./build.ps1 -NoSign
 ```
+
+The build script auto-detects the enterprise signing certificate and signtool.exe
+from the Windows SDK. Output goes to `release/x64/` and `release/arm64/`.
 
 ## Installation
 
@@ -72,7 +84,6 @@ net config server /srvcomment:"My Friendly Name"
 ## Requirements
 
 - Windows 10 1903+ or Windows 11
-- .NET 9 Desktop Runtime (included with .NET SDK)
 
 ## License
 
