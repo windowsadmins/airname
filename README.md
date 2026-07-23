@@ -14,6 +14,7 @@ Windows equivalent of [AirName for macOS](https://github.com/rodchristiansen/air
 - **System Tray Icon**: Tooltip shows the friendly name; right-click menu offers bold name display and copy-to-clipboard
 - **Dark/Light Mode**: Automatically adapts text color based on the system theme (reads SystemUsesLightTheme registry value)
 - **Always On Top**: Uses SetWinEventHook to instantly re-assert topmost when any window takes focus, plus a 500ms polling fallback
+- **Fullscreen Aware**: Hides automatically while a fullscreen app (video, game, presentation) owns the screen (SHQueryUserNotificationState + foreground-window geometry check), and reappears when it exits
 - **Click-Through**: The floating label is fully transparent to mouse input (WS_EX_TRANSPARENT + HTTRANSPARENT)
 - **Auto-Refresh**: Picks up name changes every 5 minutes, on session switch, and on display/theme changes
 - **Self-Contained**: Single-file executable with embedded runtime (~110 MB x64, ~120 MB arm64)

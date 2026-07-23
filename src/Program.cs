@@ -209,6 +209,26 @@ sealed class NameLabel : Form
     [DllImport("user32.dll")]
     private static extern bool UnhookWinEvent(IntPtr hWinEventHook);
 
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll")]
+    private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern int GetClassName(IntPtr hWnd, System.Text.StringBuilder lpClassName, int nMaxCount);
+
+    [DllImport("shell32.dll")]
+    private static extern int SHQueryUserNotificationState(out int pquns);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct RECT { public int Left, Top, Right, Bottom; }
+
+    // SHQueryUserNotificationState values that mean a fullscreen app owns the screen
+    private const int QUNS_BUSY = 2;                     // F11-style fullscreen window
+    private const int QUNS_RUNNING_D3D_FULL_SCREEN = 3;  // exclusive Direct3D fullscreen
+    private const int QUNS_PRESENTATION_MODE = 4;
+
     private const uint EVENT_SYSTEM_FOREGROUND = 3;
     private const uint WINEVENT_OUTOFCONTEXT = 0;
     private const uint WINEVENT_SKIPOWNPROCESS = 2;
@@ -226,9 +246,7 @@ sealed class NameLabel : Form
 
         // Re-assert topmost aggressively so taskbar redraws can't bury us
         _topmostTimer = new System.Windows.Forms.Timer { Interval = 500 };
-        _topmostTimer.Tick += (_, _) =>
-            SetWindowPos(Handle, HWND_TOPMOST, 0, 0, 0, 0,
-                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+        _topmostTimer.Tick += (_, _) => AssertTopmost();
         _topmostTimer.Start();
 
         // Instant re-assert when any window takes focus (catches taskbar clicks)
@@ -253,8 +271,50 @@ sealed class NameLabel : Form
     private void OnForegroundChanged(IntPtr hWinEventHook, uint eventType,
         IntPtr hwnd, int idObject, int idChild, uint dwEventThread, uint dwmsEventTime)
     {
+        AssertTopmost();
+    }
+
+    /// <summary>
+    /// Keep the label topmost — except while a fullscreen app (video, game,
+    /// presentation) owns the screen, in which case hide until it exits.
+    /// </summary>
+    private void AssertTopmost()
+    {
+        if (!IsHandleCreated) return;
+
+        if (IsFullscreenAppActive())
+        {
+            if (Visible) Hide();
+            return;
+        }
+
+        if (!Visible) Show();
         SetWindowPos(Handle, HWND_TOPMOST, 0, 0, 0, 0,
             SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+    }
+
+    private bool IsFullscreenAppActive()
+    {
+        // Shell's own signal: fullscreen window, exclusive D3D, or presentation mode
+        if (SHQueryUserNotificationState(out int quns) == 0 &&
+            (quns == QUNS_BUSY || quns == QUNS_RUNNING_D3D_FULL_SCREEN || quns == QUNS_PRESENTATION_MODE))
+            return true;
+
+        // Fallback: foreground window covering the entire screen the label sits on
+        IntPtr fg = GetForegroundWindow();
+        if (fg == IntPtr.Zero || fg == Handle) return false;
+
+        var cls = new System.Text.StringBuilder(64);
+        GetClassName(fg, cls, cls.Capacity);
+        string className = cls.ToString();
+        // Desktop and taskbar windows span the screen but aren't fullscreen apps
+        if (className is "Progman" or "WorkerW" or "Shell_TrayWnd" or "Shell_SecondaryTrayWnd")
+            return false;
+
+        if (!GetWindowRect(fg, out RECT r)) return false;
+        var bounds = Screen.PrimaryScreen!.Bounds;
+        return r.Left <= bounds.Left && r.Top <= bounds.Top
+            && r.Right >= bounds.Right && r.Bottom >= bounds.Bottom;
     }
 
     protected override bool ShowWithoutActivation => true;
@@ -381,9 +441,8 @@ sealed class NameLabel : Form
             UpdateLayeredWindow(Handle, screenDc, ref ptDst, ref size, memDc,
                 ref ptSrc, 0, ref blend, ULW_ALPHA);
 
-            // Immediately re-assert topmost after render
-            SetWindowPos(Handle, HWND_TOPMOST, 0, 0, 0, 0,
-                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+            // Immediately re-assert topmost after render (no-op while fullscreen-hidden)
+            AssertTopmost();
         }
         finally
         {
