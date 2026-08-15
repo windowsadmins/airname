@@ -14,9 +14,17 @@ $project = Join-Path $root "src" "AirName.csproj"
 $publishDir = Join-Path $root "release"
 
 function Find-SigningCert {
+    # Organization-specific, so it comes from the environment rather than being
+    # baked in. Without it the -like filter would be a match-anything wildcard,
+    # which would sign with an arbitrary certificate -- so bail out instead.
+    $subject = $env:AIRNAME_CERT_SUBJECT
+    if ([string]::IsNullOrWhiteSpace($subject)) {
+        Write-Warning "No signing certificate configured. Set AIRNAME_CERT_SUBJECT to your certificate's subject substring, or pass -Thumbprint / -NoSign."
+        return $null
+    }
     foreach ($store in @("Cert:\CurrentUser\My", "Cert:\LocalMachine\My")) {
         $cert = Get-ChildItem $store -ErrorAction SilentlyContinue |
-            Where-Object { $_.HasPrivateKey -and $_.Subject -like '*EmilyCarrU*' -and $_.NotAfter -gt (Get-Date) } |
+            Where-Object { $_.HasPrivateKey -and $_.Subject -like "*$subject*" -and $_.NotAfter -gt (Get-Date) } |
             Sort-Object NotAfter -Descending |
             Select-Object -First 1
         if ($cert) { return $cert }
