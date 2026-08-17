@@ -9,7 +9,7 @@
     <AssemblyName>airname</AssemblyName>
     <AssemblyTitle>AirName</AssemblyTitle>
     <AssemblyDescription>Displays your computer's friendly name in the system tray</AssemblyDescription>
-    <AssemblyCompany>Emily Carr University</AssemblyCompany>
+    <AssemblyCompany Condition="'$(AssemblyCompany)' == ''">Windows Admins Open Source</AssemblyCompany>
     <AssemblyProduct>AirName</AssemblyProduct>
     <ApplicationIcon>..\assets\airname.ico</ApplicationIcon>
     <PublishSingleFile>true</PublishSingleFile>
