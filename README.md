@@ -82,6 +82,10 @@ Or:
 net config server /srvcomment:"My Friendly Name"
 ```
 
+## Logging
+
+AirName has no console, so it keeps a file log at `C:\ProgramData\ManagedUtilities\logs\airname.log`, falling back to `%LOCALAPPDATA%\AirName\logs\airname.log` when that directory is not writable. It records each start, every sharing-name change (old and new), and any failure. Lines are `[yyyy-MM-dd HH:mm:ss] LEVEL message` in local time; the file rolls at 5 MB to `airname.log.1` through `.5`, newest first.
+
 ## Requirements
 
 - Windows 10 1903+ or Windows 11

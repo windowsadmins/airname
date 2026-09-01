@@ -7,6 +7,7 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows.Forms;
+using ManagedUtilities;
 using Microsoft.Win32;
 
 namespace AirName;
@@ -15,6 +16,12 @@ static class Program
 {
     private static Mutex? _mutex;
 
+    /// <summary>
+    /// The app's file log. A tray app has no console, so this is the only record
+    /// of what it did: start-up, every sharing-name change, and any failure.
+    /// </summary>
+    internal static readonly FileLog Log = FileLog.ForTool("airname", "AirName");
+
     [STAThread]
     static void Main()
     {
@@ -22,9 +29,32 @@ static class Program
         _mutex = new Mutex(true, mutexName, out bool createdNew);
         if (!createdNew) return;
 
+        // Log crashes before WinForms shows its usual dialog. Registering a
+        // ThreadException handler replaces that dialog, so it is re-created here
+        // to keep the visible behaviour the same.
+        Application.ThreadException += (_, e) =>
+        {
+            Log.Error("Unhandled exception on the UI thread", e.Exception);
+            using var dialog = new ThreadExceptionDialog(e.Exception);
+            if (dialog.ShowDialog() == DialogResult.Abort)
+                Application.Exit();
+        };
+        AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+        {
+            if (e.ExceptionObject is Exception ex)
+                Log.Error("Unhandled exception", ex);
+            else
+                Log.Error($"Unhandled exception: {e.ExceptionObject}");
+        };
+
+        var version = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "unknown";
+        Log.Info($"AirName {version} starting (log: {Log.FilePath})");
+
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
         Application.Run(new AirNameContext());
+
+        Log.Info("AirName exiting");
     }
 }
 
@@ -33,10 +63,13 @@ sealed class AirNameContext : ApplicationContext
     private readonly NotifyIcon _trayIcon;
     private readonly NameLabel _label;
     private readonly System.Windows.Forms.Timer _refreshTimer;
+    private string _name;
 
     public AirNameContext()
     {
         string name = GetFriendlyName();
+        _name = name;
+        Program.Log.Info($"Sharing name is \"{name}\"");
 
         _trayIcon = new NotifyIcon
         {
@@ -65,6 +98,12 @@ sealed class AirNameContext : ApplicationContext
     private void Refresh()
     {
         string name = GetFriendlyName();
+        if (name != _name)
+        {
+            Program.Log.Info($"Sharing name changed from \"{_name}\" to \"{name}\"");
+            _name = name;
+        }
+
         _trayIcon.Text = Truncate(name, 127);
         _trayIcon.ContextMenuStrip = BuildMenu(name);
         _label.UpdateName(name);
@@ -95,21 +134,32 @@ sealed class AirNameContext : ApplicationContext
             if (key?.GetValue("srvcomment") is string comment && !string.IsNullOrWhiteSpace(comment))
                 return comment;
         }
-        catch { }
+        catch (Exception ex)
+        {
+            Program.Log.Warn($"Could not read the sharing name from the registry; using the machine name: {ex.GetType().Name}: {ex.Message}");
+        }
 
         return Environment.MachineName;
     }
 
     private static Icon LoadEmbeddedIcon()
     {
-        var asm = Assembly.GetExecutingAssembly();
-        foreach (string res in asm.GetManifestResourceNames())
+        try
         {
-            if (res.EndsWith(".ico", StringComparison.OrdinalIgnoreCase))
+            var asm = Assembly.GetExecutingAssembly();
+            foreach (string res in asm.GetManifestResourceNames())
             {
-                using var stream = asm.GetManifestResourceStream(res);
-                if (stream != null) return new Icon(stream);
+                if (res.EndsWith(".ico", StringComparison.OrdinalIgnoreCase))
+                {
+                    using var stream = asm.GetManifestResourceStream(res);
+                    if (stream != null) return new Icon(stream);
+                }
             }
+            Program.Log.Warn("Embedded tray icon not found; using the system information icon");
+        }
+        catch (Exception ex)
+        {
+            Program.Log.Error("Could not load the embedded tray icon; using the system information icon", ex);
         }
         return SystemIcons.Information;
     }
